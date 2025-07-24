@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drug Alternatives Finder</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Drug Alternatives Finder</h1>
+        
+        <div class="upload-section">
+            <h2>Upload Excel File</h2>
+            <input type="file" id="file-input" accept=".xlsx">
+            <button id="upload-button">Upload</button>
+            <p id="upload-status"></p>
+        </div>
+
+        <div class="search-section">
+            <h2>Search for a Drug</h2>
+            <input type="text" id="search-input" placeholder="Enter drug name...">
+            <div id="results-container"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('upload-button').addEventListener('click', () => {
+            const fileInput = document.getElementById('file-input');
+            const file = fileInput.files[0];
+            const uploadStatus = document.getElementById('upload-status');
+
+            if (!file) {
+                uploadStatus.textContent = 'Please select a file first.';
+                uploadStatus.style.color = 'red';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    uploadStatus.textContent = `Error: ${data.error}`;
+                    uploadStatus.style.color = 'red';
+                } else {
+                    uploadStatus.textContent = `Success: ${data.success}. Rows: ${data.rows}, Columns: ${data.columns.join(', ')}`;
+                    uploadStatus.style.color = 'green';
+                }
+            })
+            .catch(error => {
+                uploadStatus.textContent = `Error: ${error}`;
+                uploadStatus.style.color = 'red';
+            });
+        });
+
+        document.getElementById('search-input').addEventListener('input', (e) => {
+            const query = e.target.value;
+            const resultsContainer = document.getElementById('results-container');
+
+            if (query.length < 2) {
+                resultsContainer.innerHTML = '';
+                return;
+            }
+
+            fetch(`/search?query=${query}`)
+            .then(response => response.json())
+            .then(data => {
+                resultsContainer.innerHTML = '';
+                if (data.error) {
+                    resultsContainer.innerHTML = `<p style="color: red;">${data.error}</p>`;
+                } else if (data.results.length > 0) {
+                    const table = document.createElement('table');
+                    table.innerHTML = `
+                        <tr>
+                            <th>Type</th>
+                            <th>Drug</th>
+                            <th>Alternate</th>
+                        </tr>
+                    `;
+                    data.results.forEach(result => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${result.type}</td>
+                            <td>${result.drug.replace(new RegExp(query, 'gi'), (match) => `<span class="highlight">${match}</span>`)}</td>
+                            <td>${result.alternate.replace(new RegExp(query, 'gi'), (match) => `<span class="highlight">${match}</span>`)}</td>
+                        `;
+                        table.appendChild(row);
+                    });
+                    resultsContainer.appendChild(table);
+                } else {
+                    resultsContainer.innerHTML = '<p>No results found.</p>';
+                }
+            })
+            .catch(error => {
+                resultsContainer.innerHTML = `<p style="color: red;">Error: ${error}</p>`;
+            });
+        });
+    </script>
+</body>
+</html>
